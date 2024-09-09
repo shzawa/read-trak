@@ -48,3 +48,11 @@ export default tseslint.config({
   },
 })
 ```
+
+## Deploy
+
+Run the following command.
+
+```shell
+git checkout main && git pull && npm i && npm run build && npm run deploy
+```
