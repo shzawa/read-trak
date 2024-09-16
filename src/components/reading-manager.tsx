@@ -1,11 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Search, Plus, Trash2, EyeOff } from 'lucide-react'
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import type React from 'react'
+import { ComponentProps, useCallback, useState } from 'react'
+import { Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,22 +14,32 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog'
+import { Book } from '@/features/books/components/Book'
+import { CreateForm as CreateBookProgressForm } from '@/features/progresses/components/CreateForm'
+import { BookProgress } from '@/features/progresses/components/BookProgress'
+import { CreateForm as CreateBookForm } from '@/features/books/components/CreateForm'
+
+// {[bookId: string]: { id: string, ... }}
+const BOOKS_STORAGE_KEY = 'Books'
+// {[bookId: string]: {[progressId: string]: { id: string, ... }}}
+const BOOK_PROGRESSES_STORAGE_KEY = 'BookProgresses'
 
 type Book = {
-  id: number
+  id: string
   title: string
-  totalPages: number
+  totalPageNumber: number
   price: number
-  progress: ProgressEntry[]
+  progressEntries: BookProgress[]
+  createdAt: string
 }
 
-type ProgressEntry = {
-  id: number
-  date: string
-  fromPage: number
-  toPage: number
-  isDisabled: boolean
+type BookProgress = {
+  id: string
+  fromPageNumber: number
+  toPageNumber: number
+  isEnabled: boolean
+  createdAt: string
 }
 
 type ConfirmDialogProps = {
@@ -41,7 +50,13 @@ type ConfirmDialogProps = {
   description: string
 }
 
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ isOpen, onClose, onConfirm, title, description }) => (
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  description,
+}) => (
   <AlertDialog open={isOpen}>
     <AlertDialogContent>
       <AlertDialogHeader>
@@ -56,137 +71,189 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ isOpen, onClose, onConfir
   </AlertDialog>
 )
 
+const getBooks = () => {
+  const books: Record<string, Book> = window.JSON.parse(
+    window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+  )
+  return books
+}
+
 export function ReadingManager() {
-  const [books, setBooks] = useState<Book[]>([])
+  const [books, setBooks] = useState<Record<string, Book>>(getBooks)
   const [searchTerm, setSearchTerm] = useState('')
-  const [newBook, setNewBook] = useState({ title: '', totalPages: 0, price: 0 })
-  const [newProgress, setNewProgress] = useState({ bookId: 0, fromPage: 0, toPage: 0 })
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, onConfirm: () => {}, title: '', description: '' })
-  const [editingField, setEditingField] = useState<{ bookId: number, field: string, value: string } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    onConfirm: () => {},
+    onClose: () => {},
+    title: '',
+    description: '',
+  })
 
-  const addBook = () => {
-    setBooks([...books, { ...newBook, id: Date.now(), progress: [] }])
-    setNewBook({ title: '', totalPages: 0, price: 0 })
-  }
+  const handleSubmitCreateBook = useCallback<
+    ComponentProps<typeof CreateBookForm>['onSubmit']
+  >((params) => {
+    const newId = window.crypto.randomUUID()
+    const newBook = {
+      ...params,
+      id: newId,
+      createdAt: new window.Date().toLocaleString(),
+      progressEntries: [],
+    }
+    setBooks((books) => ({
+      ...books,
+      [newId]: newBook,
+    }))
+    const books: Record<string, Book> = window.JSON.parse(
+      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+    )
+    books[newId] = newBook
+    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
+  }, [])
 
-  const deleteBook = (bookId: number) => {
+  const handleDeleteBook = (bookId: string) => {
     setConfirmDialog({
       isOpen: true,
       onConfirm: () => {
-        setBooks(books.filter(b => b.id !== bookId))
-        setConfirmDialog({ ...confirmDialog, isOpen: false })
+        setBooks((books) => {
+          delete books[bookId]
+          return books
+        })
+
+        const books: Record<string, Book> = window.JSON.parse(
+          window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+        )
+        delete books[bookId]
+        window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
+
+        setConfirmDialog((c) => ({ ...c, isOpen: false }))
       },
+      onClose: () => {}, // TODO: これの定義を消したい
       title: '本の削除',
-      description: 'この本の情報を削除してもよろしいですか？'
+      description: `この本の情報を削除してもよろしいですか？タイトル: ${books[bookId]}`,
     })
   }
 
-  const addProgress = (bookId: number) => {
-    const book = books.find(b => b.id === bookId)
-    if (book) {
-      const updatedProgress = [...book.progress, { ...newProgress, bookId, id: Date.now(), date: new Date().toISOString().split('T')[0], isDisabled: false }]
-      setBooks(books.map(b => b.id === bookId ? { ...b, progress: updatedProgress } : b))
-      setNewProgress({ bookId: 0, fromPage: getInitialFromPage(book), toPage: 0 })
+  const handleEditTitle = useCallback<
+    ComponentProps<typeof Book.Title>['onEdit']
+  >(({ id, value }) => {
+    const books: Record<string, Book> = window.JSON.parse(
+      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+    )
+    books[id] = {
+      ...books[id],
+      title: value,
     }
-  }
+    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
+  }, [])
 
-  const deleteProgress = (bookId: number, progressId: number, date: string) => {
-    const today = new Date().toISOString().split('T')[0]
-    if (date === today) {
-      setBooks(books.map(b => b.id === bookId ? { ...b, progress: b.progress.filter(p => p.id !== progressId) } : b))
-    } else {
-      setConfirmDialog({
-        isOpen: true,
-        onConfirm: () => {
-          setBooks(books.map(b => b.id === bookId ? { ...b, progress: b.progress.filter(p => p.id !== progressId) } : b))
-          setConfirmDialog({ ...confirmDialog, isOpen: false })
-        },
-        title: '進捗の削除',
-        description: 'この読書進捗を削除してもよろしいですか？'
-      })
+  const handleEditPrice = useCallback<
+    ComponentProps<typeof Book.TotalPageNumberAndPrice>['onEditPrice']
+  >(({ id, value }) => {
+    const books: Record<string, Book> = window.JSON.parse(
+      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+    )
+    books[id] = {
+      ...books[id],
+      price: value,
     }
-  }
+    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
+  }, [])
 
-  const toggleProgressDisabled = (bookId: number, progressId: number) => {
-    setBooks(books.map(b =>
-      b.id === bookId
-        ? { ...b, progress: b.progress.map(p =>
-            p.id === progressId ? { ...p, isDisabled: !p.isDisabled } : p
-          )}
-        : b
-    ))
-  }
-
-  const calculateProgress = (book: Book) => {
-    const totalPagesRead = book.progress
-      .filter(p => !p.isDisabled)
-      .reduce((sum, p) => sum + (p.toPage - p.fromPage + 1), 0)
-    return (totalPagesRead / book.totalPages) * 100
-  }
-
-  const calculatePricePerProgress = (book: Book) => {
-    const totalPagesRead = book.progress
-      .filter(p => !p.isDisabled)
-      .reduce((sum, p) => sum + (p.toPage - p.fromPage + 1), 0)
-    return totalPagesRead ? (book.price / book.totalPages) * totalPagesRead : 0
-  }
-
-  const getInitialFromPage = (book: Book) => {
-    const lastProgress = book.progress[book.progress.length - 1]
-    return lastProgress ? lastProgress.toPage + 1 : 1
-  }
-
-  const startEditing = (bookId: number, field: string, currentValue: string | number) => {
-    if (field === 'totalPages') {
-      const book = books.find(b => b.id === bookId)
-      if (book) {
-        setConfirmDialog({
-          isOpen: true,
-          onConfirm: () => {
-            setEditingField({ bookId, field, value: currentValue.toString() })
-            setConfirmDialog({ ...confirmDialog, isOpen: false })
-          },
-          title: '全ページ数の編集',
-          description: `編集すると登録された読書進捗はすべて削除されます。それでも編集しますか？現在の全ページ数: ${book.totalPages}`
-        })
-      }
-    } else {
-      setEditingField({ bookId, field, value: currentValue.toString() })
-    }
-  }
-
-  const handleEdit = (bookId: number, field: string, value: string) => {
-    setBooks(books.map(b => {
-      if (b.id === bookId) {
-        if (field === 'totalPages') {
-          return { ...b, [field]: parseInt(value), progress: [] }
+  const handleEditTotalPageNumber = useCallback<
+    ComponentProps<typeof Book.TotalPageNumberAndPrice>['onEditTotalPageNumber']
+  >(({ id, value, onCancel }) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: '全ページ数の編集',
+      description: `編集すると登録された読書進捗はすべて削除されます。それでも編集しますか？現在の全ページ数: ${value}`,
+      onConfirm: () => {
+        const books: Record<string, Book> = window.JSON.parse(
+          window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
+        )
+        books[id] = {
+          ...books[id],
+          totalPageNumber: value,
         }
-        return { ...b, [field]: field === 'price' ? parseInt(value) : value }
-      }
-      return b
-    }))
-    setEditingField(null)
-  }
+        window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (editingField) {
-      setEditingField({ ...editingField, value: e.target.value })
+        setConfirmDialog((c) => ({ ...c, isOpen: false }))
+      },
+      onClose: onCancel,
+    })
+  }, [])
+
+  const handleSubmitCreateBookProgress = useCallback<
+    ComponentProps<typeof CreateBookProgressForm>['onSubmit']
+  >(({ bookId, ...params }) => {
+    const progresses: Record<
+      string,
+      Record<string, BookProgress>
+    > = window.JSON.parse(
+      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
+    )
+    const newId = window.crypto.randomUUID()
+    progresses[bookId][newId] = {
+      ...params,
+      id: newId,
+      createdAt: new window.Date().toLocaleString(),
+      isEnabled: true,
     }
-  }
+    window.localStorage.setItem(
+      BOOK_PROGRESSES_STORAGE_KEY,
+      JSON.stringify(progresses)
+    )
+  }, [])
 
-  const handleInputBlur = () => {
-    if (editingField) {
-      handleEdit(editingField.bookId, editingField.field, editingField.value)
+  const handleChangeBookProgressStatus = useCallback<
+    ComponentProps<typeof BookProgress.Records>['onChangeStatus']
+  >(({ bookId, id, isEnabled }) => {
+    const progresses: Record<
+      string,
+      Record<string, BookProgress>
+    > = window.JSON.parse(
+      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
+    )
+    progresses[bookId][id] = {
+      ...progresses[bookId][id],
+      isEnabled,
     }
-  }
+    window.localStorage.setItem(
+      BOOK_PROGRESSES_STORAGE_KEY,
+      JSON.stringify(progresses)
+    )
+  }, [])
 
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleInputBlur()
-    }
-  }
+  const handleDeleteBookProgress = useCallback<
+    ComponentProps<typeof BookProgress.Records>['onDelete']
+  >(({ bookId, id }) => {
+    const progresses: Record<
+      string,
+      Record<string, BookProgress>
+    > = window.JSON.parse(
+      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
+    )
 
-  const filteredBooks = books.filter(book => book.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    setConfirmDialog({
+      isOpen: true,
+      onConfirm: () => {
+        delete progresses[bookId][id]
+        window.localStorage.setItem(
+          BOOK_PROGRESSES_STORAGE_KEY,
+          JSON.stringify(progresses)
+        )
+
+        setConfirmDialog((c) => ({ ...c, isOpen: false }))
+      },
+      onClose: () => {}, // TODO: これの定義を消したい
+      title: '読書進捗の削除',
+      description: `この読書進捗を削除してもよろしいですか？登録日時: ${progresses[bookId][id].createdAt}`,
+    })
+  }, [])
+
+  // FIXME: メモ化すると削除操作が反映されなくなる
+  const mappedBooks = Object.values(books).toSorted(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
 
   return (
     <div className="container mx-auto p-4">
@@ -207,156 +274,71 @@ export function ReadingManager() {
           <CardTitle>新しい本を追加</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
-            <Input
+          <CreateBookForm onSubmit={handleSubmitCreateBook}>
+            <CreateBookForm.TextInputField
+              name="title"
               placeholder="タイトル"
-              value={newBook.title}
-              onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
               className="w-full"
             />
             <div className="flex gap-2">
-              <Input
-                type="number"
+              <CreateBookForm.NumberInputField
+                name="totalPageNumber"
                 placeholder="全ページ数"
-                value={newBook.totalPages || ''}
-                onChange={(e) => setNewBook({ ...newBook, totalPages: parseInt(e.target.value) })}
               />
-              <Input
-                type="number"
+              <CreateBookForm.NumberInputField
+                name="price"
                 placeholder="価格"
-                value={newBook.price || ''}
-                onChange={(e) => setNewBook({ ...newBook, price: parseInt(e.target.value) })}
               />
-              <Button onClick={addBook}><Plus className="mr-2 h-4 w-4" /> 追加</Button>
+              <CreateBookForm.SubmitButton />
             </div>
-          </div>
+          </CreateBookForm>
         </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredBooks.map(book => (
-          <Card key={book.id} className="mb-4">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="break-words">
-                  {editingField?.bookId === book.id && editingField.field === 'title' ? (
-                    <Input
-                      value={editingField.value}
-                      onChange={handleInputChange}
-                      onBlur={handleInputBlur}
-                      onKeyDown={handleInputKeyDown}
-                      autoFocus
-                    />
-                  ) : (
-                    <span
-                      className="cursor-pointer hover:bg-muted p-1 rounded"
-                      onClick={() => startEditing(book.id, 'title', book.title)}
-                    >
-                      {book.title}
-                    </span>
-                  )}
-                </CardTitle>
-                <Button variant="destructive" size="sm" onClick={() => deleteBook(book.id)}>
-                  <Trash2 className="h-4 w-4 mr-2" /> 削除
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-2 flex flex-col sm:flex-row sm:items-center">
-                <span className="mr-2">全ページ数:</span>
-                {editingField?.bookId === book.id && editingField.field === 'totalPages' ? (
-                  <Input
-                    type="number"
-                    value={editingField.value}
-                    onChange={handleInputChange}
-                    onBlur={handleInputBlur}
-                    onKeyDown={handleInputKeyDown}
-                    autoFocus
-                    className="w-20"
-                  />
-                ) : (
-                  <span
-                    className="cursor-pointer hover:bg-muted p-1 rounded"
-                    onClick={() => startEditing(book.id, 'totalPages', book.totalPages)}
+        {mappedBooks.map((book) => (
+          <Book {...book} key={book.id}>
+            <Book.Header>
+              <Book.Title onEdit={handleEditTitle} />
+              <Book.DeleteButton onClick={handleDeleteBook} />
+            </Book.Header>
+            <Book.Content>
+              <Book.TotalPageNumberAndPrice
+                onEditPrice={handleEditPrice}
+                onEditTotalPageNumber={handleEditTotalPageNumber}
+              />
+              <BookProgress
+                bookId={book.id}
+                price={book.price}
+                totalPageNumber={book.totalPageNumber}
+                entries={book.progressEntries}
+              >
+                <BookProgress.Header>
+                  <BookProgress.TotalProgress />
+                  <BookProgress.TotalPricePerProgress />
+                  <CreateBookProgressForm
+                    onSubmit={handleSubmitCreateBookProgress}
                   >
-                    {book.totalPages}
-                  </span>
-                )}
-                <span className="mx-2 hidden sm:inline">/</span>
-                <span className="mr-2">価格:</span>
-                {editingField?.bookId === book.id && editingField.field === 'price' ? (
-                  <Input
-                    type="number"
-                    value={editingField.value}
-                    onChange={handleInputChange}
-                    onBlur={handleInputBlur}
-                    onKeyDown={handleInputKeyDown}
-                    autoFocus
-                    className="w-20"
+                    <CreateBookProgressForm.FromPageInputField />
+                    <CreateBookProgressForm.ToPageInputField />
+                    <CreateBookProgressForm.SubmitButton />
+                  </CreateBookProgressForm>
+                </BookProgress.Header>
+                <BookProgress.Content>
+                  <BookProgress.Records
+                    onChangeStatus={handleChangeBookProgressStatus}
+                    onDelete={handleDeleteBookProgress}
                   />
-                ) : (
-                  <span
-                    className="cursor-pointer hover:bg-muted p-1 rounded"
-                    onClick={() => startEditing(book.id, 'price', book.price)}
-                  >
-                    ¥{book.price}
-                  </span>
-                )}
-              </div>
-              <div className="mb-2">
-                進行度: {calculateProgress(book).toFixed(2)}%
-                <Progress value={calculateProgress(book)} className="mt-2" />
-              </div>
-              <div className="mb-4">消化価格: ¥{calculatePricePerProgress(book).toFixed(2)}</div>
-
-              <div className="mb-4">
-                <h4 className="font-semibold mb-2">読書進捗を追加</h4>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="開始ページ"
-                    value={newProgress.fromPage || getInitialFromPage(book)}
-                    onChange={(e) => setNewProgress({ ...newProgress, bookId: book.id, fromPage: parseInt(e.target.value) })}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="終了ページ"
-                    value={newProgress.toPage || ''}
-                    onChange={(e) => setNewProgress({ ...newProgress, bookId: book.id, toPage: parseInt(e.target.value) })}
-                  />
-                  <Button onClick={() => addProgress(book.id)}><Plus className="mr-2 h-4 w-4" /> 追加</Button>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-2">読書進捗</h4>
-                {book.progress.map((p, index) => (
-                  <div key={p.id} className={`flex justify-between items-center mb-2 p-2 rounded-md hover:bg-muted/80 transition-colors ${p.isDisabled ? 'bg-muted/50 text-muted-foreground' : 'bg-muted'}`}>
-                    <div className="flex items-center space-x-4">
-                      <span className="font-medium text-sm">{index + 1}.</span>
-                      <span>{p.fromPage} -  {p.toPage}ページ</span>
-                      <span className="text-sm text-muted-foreground">({p.toPage - p.fromPage + 1}ページ)</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <span className="text-sm text-muted-foreground">{p.date}</span>
-                      <Button variant="ghost" size="sm" onClick={() => toggleProgressDisabled(book.id, p.id)}>
-                        <EyeOff className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => deleteProgress(book.id, p.id, p.date)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </BookProgress.Content>
+              </BookProgress>
+            </Book.Content>
+          </Book>
         ))}
       </div>
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onClose={confirmDialog.onClose}
         onConfirm={confirmDialog.onConfirm}
         title={confirmDialog.title}
         description={confirmDialog.description}

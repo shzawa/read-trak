@@ -11,4 +11,7 @@ export default defineConfig({
     },
   },
   base: "/read-trak/",
+  // server: {
+  //   open: true // npm run dev でブラウザ自動起動
+  // }
 })
