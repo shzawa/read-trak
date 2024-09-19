@@ -83,7 +83,6 @@ Book.Title = function Component({ onEdit }) {
 
   return (
     <CardTitle className="break-words">
-      <span className="cursor-pointer hover:bg-muted p-1 rounded">{value}</span>
       {isEditable ? (
         <Input
           value={value}

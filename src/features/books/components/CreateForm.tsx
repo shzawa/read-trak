@@ -45,11 +45,11 @@ export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
   })
 
   return (
-    <div className="grid gap-4">
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit}>{children}</form>
-      </FormProvider>
-    </div>
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-4">{children}</div>
+      </form>
+    </FormProvider>
   )
 }
 

@@ -3,8 +3,10 @@ import { Progress } from '@/components/ui/progress'
 import { EyeOff, Trash2 } from 'lucide-react'
 import {
   createContext,
+  Dispatch,
   FC,
   PropsWithChildren,
+  SetStateAction,
   useCallback,
   useContext,
   useMemo,
@@ -23,13 +25,26 @@ type BookProgressContext = {
     isEnabled: boolean
     createdAt: string
   }[]
+  setEntries: Dispatch<
+    SetStateAction<
+      {
+        id: string
+        fromPageNumber: number
+        toPageNumber: number
+        isEnabled: boolean
+        createdAt: string
+      }[]
+    >
+  >
 }
+// TODO: DispatchContextとStateContextで分けたい
 export const BookProgressContext = createContext<BookProgressContext>({
   bookId: '',
   totalProgress: 0,
   totalPricePerProgress: 0,
   entries: [],
   initialFromPageNumber: 0,
+  setEntries: () => void 0,
 })
 
 export interface BookProgressComponent
@@ -52,13 +67,16 @@ type BookProgressProps = {
   bookId: string
   price: number
   totalPageNumber: number
-  entries: {
-    id: string
-    fromPageNumber: number
-    toPageNumber: number
-    isEnabled: boolean
-    createdAt: string
-  }[]
+  entries: Record<
+    string,
+    {
+      id: string
+      fromPageNumber: number
+      toPageNumber: number
+      isEnabled: boolean
+      createdAt: string
+    }
+  >
 }
 export const BookProgress: BookProgressComponent = ({
   price,
@@ -66,33 +84,43 @@ export const BookProgress: BookProgressComponent = ({
   children,
   ...props
 }) => {
+  const mappedEntries = useMemo(
+    () => Object.values(props.entries),
+    [props.entries]
+  )
+  const [entries, setEntries] = useState(mappedEntries)
+
+  // FIXME: array から record での取り扱いに修正する
   const totalProgress = useMemo(() => {
-    const totalPageCountRead = props.entries
+    const totalPageCountRead = mappedEntries
       .filter((p) => p.isEnabled)
       .reduce((sum, p) => sum + (p.toPageNumber - p.fromPageNumber + 1), 1)
     return (totalPageCountRead / totalPageNumber) * 100
-  }, [props.entries, totalPageNumber])
+  }, [mappedEntries, totalPageNumber])
+
   const totalPricePerProgress = useMemo(() => {
-    const totalPageCountRead = props.entries
+    const totalPageCountRead = mappedEntries
       .filter((p) => p.isEnabled)
       .reduce((sum, p) => sum + (p.toPageNumber - p.fromPageNumber + 1), 1)
     return totalPageCountRead
       ? (price / totalPageNumber) * totalPageCountRead
       : 0
-  }, [props.entries, price, totalPageNumber])
+  }, [mappedEntries, price, totalPageNumber])
+
   const initialFromPageNumber = useMemo(() => {
-    if (props.entries.length === 0) return 1
-    return props.entries[props.entries.length - 1].toPageNumber + 1
-  }, [props.entries])
-  const value = useMemo(
-    () => ({
-      ...props,
-      totalProgress,
-      totalPricePerProgress,
-      initialFromPageNumber,
-    }),
-    [initialFromPageNumber, props, totalPricePerProgress, totalProgress]
-  )
+    if (mappedEntries.length === 0) return 1
+    // FIXME: toPageNumber が number 型なのに中身は string になっている
+    return Number(mappedEntries[mappedEntries.length - 1].toPageNumber) + 1
+  }, [mappedEntries])
+
+  const value = {
+    ...props,
+    totalProgress,
+    totalPricePerProgress,
+    initialFromPageNumber,
+    entries,
+    setEntries,
+  }
   return (
     <BookProgressContext.Provider value={value}>
       <div>{children}</div>
@@ -129,8 +157,7 @@ BookProgress.Content = function Component({ children }) {
 }
 
 BookProgress.Records = function Component({ onChangeStatus, onDelete }) {
-  const { entries: initialEntries, bookId } = useContext(BookProgressContext)
-  const [entries, setEntries] = useState(initialEntries)
+  const { entries, bookId, setEntries } = useContext(BookProgressContext)
 
   const handleChangeProgressStatus = useCallback(
     (id: string, isEnabled: boolean) => {
@@ -142,14 +169,14 @@ BookProgress.Records = function Component({ onChangeStatus, onDelete }) {
       )
       onChangeStatus({ id, bookId, isEnabled: toggledIsEnabled })
     },
-    [bookId, onChangeStatus]
+    [bookId, onChangeStatus, setEntries]
   )
   const handleDeleteProgress = useCallback(
     (id: string) => {
       setEntries((entries) => entries.filter((entry) => entry.id !== id))
       onDelete({ id, bookId })
     },
-    [bookId, onDelete]
+    [bookId, onDelete, setEntries]
   )
 
   return (

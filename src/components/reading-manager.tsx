@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { ComponentProps, useCallback, useState } from 'react'
+import { ComponentProps, useCallback, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,11 +30,10 @@ type Book = {
   title: string
   totalPageNumber: number
   price: number
-  progressEntries: BookProgress[]
   createdAt: string
 }
 
-type BookProgress = {
+type BookProgressType = {
   id: string
   fromPageNumber: number
   toPageNumber: number
@@ -78,8 +77,19 @@ const getBooks = () => {
   return books
 }
 
+const getProgresses = () => {
+  const progresses: Record<
+    string,
+    Record<string, BookProgressType>
+  > = window.JSON.parse(
+    window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
+  )
+  return progresses
+}
+
 export function ReadingManager() {
   const [books, setBooks] = useState<Record<string, Book>>(getBooks)
+  const progresses = useMemo(getProgresses, [])
   const [searchTerm, setSearchTerm] = useState('')
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -187,16 +197,19 @@ export function ReadingManager() {
   >(({ bookId, ...params }) => {
     const progresses: Record<
       string,
-      Record<string, BookProgress>
+      Record<string, BookProgressType>
     > = window.JSON.parse(
       window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
     )
     const newId = window.crypto.randomUUID()
-    progresses[bookId][newId] = {
-      ...params,
-      id: newId,
-      createdAt: new window.Date().toLocaleString(),
-      isEnabled: true,
+    progresses[bookId] = {
+      ...progresses[bookId],
+      [newId]: {
+        ...params,
+        id: newId,
+        createdAt: new window.Date().toLocaleString(),
+        isEnabled: true,
+      },
     }
     window.localStorage.setItem(
       BOOK_PROGRESSES_STORAGE_KEY,
@@ -209,7 +222,7 @@ export function ReadingManager() {
   >(({ bookId, id, isEnabled }) => {
     const progresses: Record<
       string,
-      Record<string, BookProgress>
+      Record<string, BookProgressType>
     > = window.JSON.parse(
       window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
     )
@@ -228,7 +241,7 @@ export function ReadingManager() {
   >(({ bookId, id }) => {
     const progresses: Record<
       string,
-      Record<string, BookProgress>
+      Record<string, BookProgressType>
     > = window.JSON.parse(
       window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
     )
@@ -251,9 +264,15 @@ export function ReadingManager() {
   }, [])
 
   // FIXME: メモ化すると削除操作が反映されなくなる
-  const mappedBooks = Object.values(books).toSorted(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  )
+  const mappedBooks = Object.values(books)
+    .toSorted(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+    .map((book) => ({
+      ...book,
+      progressEntries: progresses,
+    }))
 
   return (
     <div className="container mx-auto p-4">
@@ -311,7 +330,7 @@ export function ReadingManager() {
                 bookId={book.id}
                 price={book.price}
                 totalPageNumber={book.totalPageNumber}
-                entries={book.progressEntries}
+                entries={progresses[book.id]}
               >
                 <BookProgress.Header>
                   <BookProgress.TotalProgress />

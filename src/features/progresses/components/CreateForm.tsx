@@ -26,7 +26,8 @@ type FormData = {
   bookId: string
 }
 export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
-  const { initialFromPageNumber, bookId } = useContext(BookProgressContext)
+  const { initialFromPageNumber, bookId, setEntries } =
+    useContext(BookProgressContext)
   const methods = useForm<FormData>({
     defaultValues: {
       fromPageNumber: initialFromPageNumber,
@@ -35,6 +36,16 @@ export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
     },
   })
   const handleSubmit = methods.handleSubmit((fields) => {
+    setEntries((entries) => [
+      ...entries,
+      {
+        ...fields,
+        id: window.crypto.randomUUID(), // TODO: localStorage insert時のIDとは別になっちゃってる
+        createdAt: new window.Date().toLocaleString(),
+        isEnabled: true,
+      },
+    ])
+    console.log('handleSubmit!!!!')
     onSubmit({
       ...fields,
       bookId,
@@ -42,14 +53,14 @@ export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
   })
 
   return (
-    <div className="mb-4">
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit}>
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
           <h4 className="font-semibold mb-2">読書進捗を追加</h4>
           <div className="flex gap-2">{children}</div>
-        </form>
-      </FormProvider>
-    </div>
+        </div>
+      </form>
+    </FormProvider>
   )
 }
 
