@@ -5,16 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 
-interface CreateFormComponent
-  extends FC<
-    PropsWithChildren<{
-      onSubmit: (params: {
-        fromPageNumber: number
-        toPageNumber: number
-        bookId: string
-      }) => void
-    }>
-  > {
+interface CreateFormComponent extends FC<PropsWithChildren> {
   FromPageInputField: FC
   ToPageInputField: FC
   SubmitButton: FC
@@ -25,7 +16,7 @@ type FormData = {
   toPageNumber: number
   bookId: string
 }
-export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
+export const CreateForm: CreateFormComponent = ({ children }) => {
   const { initialFromPageNumber, bookId, setEntries } =
     useContext(BookProgressContext)
   const methods = useForm<FormData>({
@@ -40,16 +31,11 @@ export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
       ...entries,
       {
         ...fields,
-        id: window.crypto.randomUUID(), // TODO: localStorage insert時のIDとは別になっちゃってる
+        id: window.crypto.randomUUID(),
         createdAt: new window.Date().toLocaleString(),
         isEnabled: true,
       },
     ])
-    console.log('handleSubmit!!!!')
-    onSubmit({
-      ...fields,
-      bookId,
-    })
   })
 
   return (

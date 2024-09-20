@@ -16,13 +16,16 @@ type Book = {
   title: string
   price: number
   totalPageNumber: number
+  createdAt: string
 }
 
+// TODO: setBook を用意して Book 内で Storage のミューテーションを完結したい
 const BookContext = createContext<Book>({
   id: '',
   price: 0,
   title: '',
   totalPageNumber: 0,
+  createdAt: '',
 })
 
 interface BookComponent extends FC<PropsWithChildren<Book>> {
@@ -35,7 +38,7 @@ interface BookComponent extends FC<PropsWithChildren<Book>> {
       onEditTotalPageNumber: (params: {
         id: string
         value: number
-        onCancel: () => void
+        onConfirm: () => void
       }) => void
       onEditPrice: (params: { id: string; value: number }) => void
     }>
@@ -138,36 +141,39 @@ Book.TotalPageNumberAndPrice = function Component({
 }
 
 const TotalPageNumber: FC<{
-  onEdit: (props: { id: string; value: number; onCancel: () => void }) => void
+  onEdit: (props: { id: string; value: number; onConfirm: () => void }) => void
 }> = ({ onEdit }) => {
   const { totalPageNumber: initialValue, id } = useContext(BookContext)
   const [isEditable, setIsEditable] = useState(false)
+  const [inputValue, setInputValue] = useState(initialValue)
   const [value, setValue] = useState(initialValue)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(Number(e.target.value))
+    setInputValue(Number(e.target.value))
   }
 
   const handleInputBlur = () => {
-    if (value !== initialValue) {
+    if (inputValue !== initialValue) {
       onEdit({
-        value,
+        value: inputValue,
         id,
-        onCancel: () => setValue(initialValue), // 確認ダイアログでキャンセルされたら元に戻す,
+        onConfirm: () => setValue(inputValue),
       })
     }
+    setInputValue(initialValue)
     setIsEditable(false)
   }
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      if (value !== initialValue) {
+      if (inputValue !== initialValue) {
         onEdit({
-          value,
+          value: inputValue,
           id,
-          onCancel: () => setValue(initialValue), // 確認ダイアログでキャンセルされたら元に戻す,
+          onConfirm: () => setValue(inputValue),
         })
       }
+      setInputValue(initialValue)
       setIsEditable(false)
     }
   }
@@ -179,7 +185,7 @@ const TotalPageNumber: FC<{
   return isEditable ? (
     <Input
       type="number"
-      value={value}
+      value={inputValue}
       onChange={handleInputChange}
       onBlur={handleInputBlur}
       onKeyDown={handleInputKeyDown}

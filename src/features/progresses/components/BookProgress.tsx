@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { EyeOff, Trash2 } from 'lucide-react'
 import {
   createContext,
@@ -10,32 +11,20 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useState,
 } from 'react'
+import { BookProgressType } from '../types'
+
+// TODO: 共通化
+// {[bookId: string]: { id: string, ... }[]}
+const BOOK_PROGRESSES_STORAGE_KEY = 'BookProgresses'
 
 type BookProgressContext = {
   bookId: string
   totalProgress: number
   totalPricePerProgress: number
   initialFromPageNumber: number
-  entries: {
-    id: string
-    fromPageNumber: number
-    toPageNumber: number
-    isEnabled: boolean
-    createdAt: string
-  }[]
-  setEntries: Dispatch<
-    SetStateAction<
-      {
-        id: string
-        fromPageNumber: number
-        toPageNumber: number
-        isEnabled: boolean
-        createdAt: string
-      }[]
-    >
-  >
+  entries: BookProgressType[]
+  setEntries: Dispatch<SetStateAction<BookProgressType[]>>
 }
 // TODO: DispatchContextとStateContextで分けたい
 export const BookProgressContext = createContext<BookProgressContext>({
@@ -54,29 +43,22 @@ export interface BookProgressComponent
   TotalPricePerProgress: FC
   Content: FC<PropsWithChildren>
   Records: FC<{
-    onChangeStatus: (props: {
+    onDelete: (props: {
       id: string
       bookId: string
-      isEnabled: boolean
+      onConfirm: () => void
     }) => void
-    onDelete: (props: { id: string; bookId: string }) => void
   }>
 }
+
+// TODO: 共通化
+type BookId = string
+type BookProgressRecord = Record<BookId, BookProgressType[]>
 
 type BookProgressProps = {
   bookId: string
   price: number
   totalPageNumber: number
-  entries: Record<
-    string,
-    {
-      id: string
-      fromPageNumber: number
-      toPageNumber: number
-      isEnabled: boolean
-      createdAt: string
-    }
-  >
 }
 export const BookProgress: BookProgressComponent = ({
   price,
@@ -84,34 +66,47 @@ export const BookProgress: BookProgressComponent = ({
   children,
   ...props
 }) => {
-  const mappedEntries = useMemo(
-    () => Object.values(props.entries),
-    [props.entries]
+  const [bookProgressRecord, setBookProgressRecord] =
+    useLocalStorage<BookProgressRecord>(BOOK_PROGRESSES_STORAGE_KEY, {})
+  const [entries, setEntries] = useMemo<
+    [BookProgressType[], Dispatch<SetStateAction<BookProgressType[]>>]
+  >(
+    () => [
+      bookProgressRecord[props.bookId] || [],
+      (entries) => {
+        setBookProgressRecord((prevRecord) => ({
+          ...prevRecord,
+          [props.bookId]:
+            entries instanceof Function
+              ? entries(prevRecord[props.bookId] || [])
+              : entries,
+        }))
+      },
+    ],
+    [bookProgressRecord, props.bookId, setBookProgressRecord]
   )
-  const [entries, setEntries] = useState(mappedEntries)
 
-  // FIXME: array から record での取り扱いに修正する
   const totalProgress = useMemo(() => {
-    const totalPageCountRead = mappedEntries
+    const totalPageCountRead = entries
       .filter((p) => p.isEnabled)
       .reduce((sum, p) => sum + (p.toPageNumber - p.fromPageNumber + 1), 1)
     return (totalPageCountRead / totalPageNumber) * 100
-  }, [mappedEntries, totalPageNumber])
+  }, [entries, totalPageNumber])
 
   const totalPricePerProgress = useMemo(() => {
-    const totalPageCountRead = mappedEntries
+    const totalPageCountRead = entries
       .filter((p) => p.isEnabled)
       .reduce((sum, p) => sum + (p.toPageNumber - p.fromPageNumber + 1), 1)
     return totalPageCountRead
       ? (price / totalPageNumber) * totalPageCountRead
       : 0
-  }, [mappedEntries, price, totalPageNumber])
+  }, [entries, price, totalPageNumber])
 
   const initialFromPageNumber = useMemo(() => {
-    if (mappedEntries.length === 0) return 1
+    if (entries.length === 0) return 1
     // FIXME: toPageNumber が number 型なのに中身は string になっている
-    return Number(mappedEntries[mappedEntries.length - 1].toPageNumber) + 1
-  }, [mappedEntries])
+    return Number(entries[entries.length - 1].toPageNumber) + 1
+  }, [entries])
 
   const value = {
     ...props,
@@ -156,7 +151,7 @@ BookProgress.Content = function Component({ children }) {
   )
 }
 
-BookProgress.Records = function Component({ onChangeStatus, onDelete }) {
+BookProgress.Records = function Component({ onDelete }) {
   const { entries, bookId, setEntries } = useContext(BookProgressContext)
 
   const handleChangeProgressStatus = useCallback(
@@ -167,14 +162,17 @@ BookProgress.Records = function Component({ onChangeStatus, onDelete }) {
           entry.id === id ? { ...entry, isEnabled: toggledIsEnabled } : entry
         )
       )
-      onChangeStatus({ id, bookId, isEnabled: toggledIsEnabled })
     },
-    [bookId, onChangeStatus, setEntries]
+    [setEntries]
   )
   const handleDeleteProgress = useCallback(
     (id: string) => {
-      setEntries((entries) => entries.filter((entry) => entry.id !== id))
-      onDelete({ id, bookId })
+      onDelete({
+        id,
+        bookId,
+        onConfirm: () =>
+          setEntries((entries) => entries.filter((entry) => entry.id !== id)),
+      })
     },
     [bookId, onDelete, setEntries]
   )

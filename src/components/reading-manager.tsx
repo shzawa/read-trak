@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { ComponentProps, useCallback, useMemo, useState } from 'react'
+import { ComponentProps, useCallback, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,10 +19,13 @@ import { Book } from '@/features/books/components/Book'
 import { CreateForm as CreateBookProgressForm } from '@/features/progresses/components/CreateForm'
 import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { CreateForm as CreateBookForm } from '@/features/books/components/CreateForm'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 
-// {[bookId: string]: { id: string, ... }}
+// { id: string, ... }[]
 const BOOKS_STORAGE_KEY = 'Books'
-// {[bookId: string]: {[progressId: string]: { id: string, ... }}}
+
+// TODO: 共通化
+// {[bookId: string]: { id: string, ... }[]}
 const BOOK_PROGRESSES_STORAGE_KEY = 'BookProgresses'
 
 type Book = {
@@ -70,26 +73,18 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   </AlertDialog>
 )
 
-const getBooks = () => {
-  const books: Record<string, Book> = window.JSON.parse(
-    window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-  )
-  return books
-}
-
-const getProgresses = () => {
-  const progresses: Record<
-    string,
-    Record<string, BookProgressType>
-  > = window.JSON.parse(
-    window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
-  )
-  return progresses
-}
+type BookId = string
+type BookProgressRecord = Record<BookId, BookProgressType[]>
 
 export function ReadingManager() {
-  const [books, setBooks] = useState<Record<string, Book>>(getBooks)
-  const progresses = useMemo(getProgresses, [])
+  const [books, setBooks] = useLocalStorage<Book[]>(BOOKS_STORAGE_KEY, [])
+  const mappedBooks = books.toSorted(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+  const [progresses] = useLocalStorage<BookProgressRecord>(
+    BOOK_PROGRESSES_STORAGE_KEY,
+    {}
+  )
   const [searchTerm, setSearchTerm] = useState('')
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -101,178 +96,97 @@ export function ReadingManager() {
 
   const handleSubmitCreateBook = useCallback<
     ComponentProps<typeof CreateBookForm>['onSubmit']
-  >((params) => {
-    const newId = window.crypto.randomUUID()
-    const newBook = {
-      ...params,
-      id: newId,
-      createdAt: new window.Date().toLocaleString(),
-      progressEntries: [],
-    }
-    setBooks((books) => ({
-      ...books,
-      [newId]: newBook,
-    }))
-    const books: Record<string, Book> = window.JSON.parse(
-      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-    )
-    books[newId] = newBook
-    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
-  }, [])
+  >(
+    (params) => {
+      console.log('asdasdasdasds')
+      setBooks((books) => [
+        ...books,
+        {
+          ...params,
+          id: window.crypto.randomUUID(),
+          createdAt: new window.Date().toLocaleString(),
+        },
+      ])
+    },
+    [setBooks]
+  )
 
   const handleDeleteBook = (bookId: string) => {
     setConfirmDialog({
       isOpen: true,
       onConfirm: () => {
-        setBooks((books) => {
-          delete books[bookId]
-          return books
-        })
-
-        const books: Record<string, Book> = window.JSON.parse(
-          window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-        )
-        delete books[bookId]
-        window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
+        setBooks((books) => books.filter((book) => book.id !== bookId))
 
         setConfirmDialog((c) => ({ ...c, isOpen: false }))
       },
       onClose: () => {}, // TODO: これの定義を消したい
       title: '本の削除',
-      description: `この本の情報を削除してもよろしいですか？タイトル: ${books[bookId]}`,
+      description: `この本の情報を削除してもよろしいですか？タイトル: ${books.find((book) => book.id === bookId)?.title}`,
     })
   }
 
   const handleEditTitle = useCallback<
     ComponentProps<typeof Book.Title>['onEdit']
-  >(({ id, value }) => {
-    const books: Record<string, Book> = window.JSON.parse(
-      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-    )
-    books[id] = {
-      ...books[id],
-      title: value,
-    }
-    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
-  }, [])
+  >(
+    ({ id, value }) => {
+      setBooks((books) =>
+        books.map((b) => (b.id === id ? { ...b, title: value } : b))
+      )
+    },
+    [setBooks]
+  )
 
   const handleEditPrice = useCallback<
     ComponentProps<typeof Book.TotalPageNumberAndPrice>['onEditPrice']
-  >(({ id, value }) => {
-    const books: Record<string, Book> = window.JSON.parse(
-      window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-    )
-    books[id] = {
-      ...books[id],
-      price: value,
-    }
-    window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
-  }, [])
+  >(
+    ({ id, value }) => {
+      setBooks((books) =>
+        books.map((b) => (b.id === id ? { ...b, price: value } : b))
+      )
+    },
+    [setBooks]
+  )
 
   const handleEditTotalPageNumber = useCallback<
     ComponentProps<typeof Book.TotalPageNumberAndPrice>['onEditTotalPageNumber']
-  >(({ id, value, onCancel }) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: '全ページ数の編集',
-      description: `編集すると登録された読書進捗はすべて削除されます。それでも編集しますか？現在の全ページ数: ${value}`,
-      onConfirm: () => {
-        const books: Record<string, Book> = window.JSON.parse(
-          window.localStorage.getItem(BOOKS_STORAGE_KEY) || '{}'
-        )
-        books[id] = {
-          ...books[id],
-          totalPageNumber: value,
-        }
-        window.localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books))
-
-        setConfirmDialog((c) => ({ ...c, isOpen: false }))
-      },
-      onClose: onCancel,
-    })
-  }, [])
-
-  const handleSubmitCreateBookProgress = useCallback<
-    ComponentProps<typeof CreateBookProgressForm>['onSubmit']
-  >(({ bookId, ...params }) => {
-    const progresses: Record<
-      string,
-      Record<string, BookProgressType>
-    > = window.JSON.parse(
-      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
-    )
-    const newId = window.crypto.randomUUID()
-    progresses[bookId] = {
-      ...progresses[bookId],
-      [newId]: {
-        ...params,
-        id: newId,
-        createdAt: new window.Date().toLocaleString(),
-        isEnabled: true,
-      },
-    }
-    window.localStorage.setItem(
-      BOOK_PROGRESSES_STORAGE_KEY,
-      JSON.stringify(progresses)
-    )
-  }, [])
-
-  const handleChangeBookProgressStatus = useCallback<
-    ComponentProps<typeof BookProgress.Records>['onChangeStatus']
-  >(({ bookId, id, isEnabled }) => {
-    const progresses: Record<
-      string,
-      Record<string, BookProgressType>
-    > = window.JSON.parse(
-      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
-    )
-    progresses[bookId][id] = {
-      ...progresses[bookId][id],
-      isEnabled,
-    }
-    window.localStorage.setItem(
-      BOOK_PROGRESSES_STORAGE_KEY,
-      JSON.stringify(progresses)
-    )
-  }, [])
+  >(
+    ({ id, value, onConfirm }) => {
+      setConfirmDialog({
+        isOpen: true,
+        title: '全ページ数の編集',
+        description: `編集すると登録された読書進捗はすべて削除されます。それでも編集しますか？現在の全ページ数: ${value}`,
+        onConfirm: () => {
+          onConfirm()
+          setBooks((books) =>
+            books.map((b) =>
+              b.id === id ? { ...b, totalPageNumber: value } : b
+            )
+          )
+          setConfirmDialog((c) => ({ ...c, isOpen: false }))
+        },
+        onClose: () => {},
+      })
+    },
+    [setBooks]
+  )
 
   const handleDeleteBookProgress = useCallback<
     ComponentProps<typeof BookProgress.Records>['onDelete']
-  >(({ bookId, id }) => {
-    const progresses: Record<
-      string,
-      Record<string, BookProgressType>
-    > = window.JSON.parse(
-      window.localStorage.getItem(BOOK_PROGRESSES_STORAGE_KEY) || '{}'
-    )
-
-    setConfirmDialog({
-      isOpen: true,
-      onConfirm: () => {
-        delete progresses[bookId][id]
-        window.localStorage.setItem(
-          BOOK_PROGRESSES_STORAGE_KEY,
-          JSON.stringify(progresses)
-        )
-
-        setConfirmDialog((c) => ({ ...c, isOpen: false }))
-      },
-      onClose: () => {}, // TODO: これの定義を消したい
-      title: '読書進捗の削除',
-      description: `この読書進捗を削除してもよろしいですか？登録日時: ${progresses[bookId][id].createdAt}`,
-    })
-  }, [])
-
-  // FIXME: メモ化すると削除操作が反映されなくなる
-  const mappedBooks = Object.values(books)
-    .toSorted(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
-    .map((book) => ({
-      ...book,
-      progressEntries: progresses,
-    }))
+  >(
+    ({ bookId, id, onConfirm }) => {
+      setConfirmDialog({
+        isOpen: true,
+        onConfirm: () => {
+          onConfirm()
+          setConfirmDialog((c) => ({ ...c, isOpen: false }))
+        },
+        onClose: () => {}, // TODO: これの定義を消したい
+        title: '読書進捗の削除',
+        description: `この読書進捗を削除してもよろしいですか？登録日時: ${progresses[bookId].find((p) => p.id === id)?.createdAt}`,
+      })
+    },
+    [progresses]
+  )
 
   return (
     <div className="container mx-auto p-4">
@@ -330,24 +244,18 @@ export function ReadingManager() {
                 bookId={book.id}
                 price={book.price}
                 totalPageNumber={book.totalPageNumber}
-                entries={progresses[book.id]}
               >
                 <BookProgress.Header>
                   <BookProgress.TotalProgress />
                   <BookProgress.TotalPricePerProgress />
-                  <CreateBookProgressForm
-                    onSubmit={handleSubmitCreateBookProgress}
-                  >
+                  <CreateBookProgressForm>
                     <CreateBookProgressForm.FromPageInputField />
                     <CreateBookProgressForm.ToPageInputField />
                     <CreateBookProgressForm.SubmitButton />
                   </CreateBookProgressForm>
                 </BookProgress.Header>
                 <BookProgress.Content>
-                  <BookProgress.Records
-                    onChangeStatus={handleChangeBookProgressStatus}
-                    onDelete={handleDeleteBookProgress}
-                  />
+                  <BookProgress.Records onDelete={handleDeleteBookProgress} />
                 </BookProgress.Content>
               </BookProgress>
             </Book.Content>
