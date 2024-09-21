@@ -1,10 +1,10 @@
 import { FormProvider, useForm, useFormContext } from 'react-hook-form'
-import { BookProgressContext } from './BookProgress'
 import { FC, PropsWithChildren, useContext, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { addBookProgressToStorage } from '../storage'
+import { BookProgressContext, BookProgressDispatchContext } from '../context'
 
 interface CreateFormComponent extends FC<PropsWithChildren> {
   FromPageInputField: FC
@@ -18,8 +18,8 @@ type FormData = {
   bookId: string
 }
 export const CreateForm: CreateFormComponent = ({ children }) => {
-  const { initialFromPageNumber, bookId, setEntries } =
-    useContext(BookProgressContext)
+  const { initialFromPageNumber, bookId } = useContext(BookProgressContext)
+  const { setEntries } = useContext(BookProgressDispatchContext)
   const methods = useForm<FormData>({
     defaultValues: {
       fromPageNumber: initialFromPageNumber,

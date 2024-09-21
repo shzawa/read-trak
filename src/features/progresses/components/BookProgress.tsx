@@ -2,11 +2,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { EyeOff, Trash2 } from 'lucide-react'
 import {
-  createContext,
-  Dispatch,
   FC,
   PropsWithChildren,
-  SetStateAction,
   useCallback,
   useContext,
   useMemo,
@@ -17,24 +14,7 @@ import {
   deleteBookProgressFromStorage,
   updateBookProgressToStorage,
 } from '../storage'
-
-type BookProgressContext = {
-  bookId: string
-  totalProgress: number
-  totalPricePerProgress: number
-  initialFromPageNumber: number
-  entries: BookProgressType[]
-  setEntries: Dispatch<SetStateAction<BookProgressType[]>>
-}
-// TODO: DispatchContextとStateContextで分けたい
-export const BookProgressContext = createContext<BookProgressContext>({
-  bookId: '',
-  totalProgress: 0,
-  totalPricePerProgress: 0,
-  entries: [],
-  initialFromPageNumber: 0,
-  setEntries: () => void 0,
-})
+import { BookProgressContext, BookProgressDispatchContext } from '../context'
 
 export interface BookProgressComponent
   extends FC<PropsWithChildren<BookProgressProps>> {
@@ -50,6 +30,13 @@ export interface BookProgressComponent
       onSubmit: () => void
     }) => void
   }>
+  Record: FC<
+    BookProgressType & {
+      counter: number
+      onChangeStatus: (params: { id: string; isEnabled: boolean }) => void
+      onDelete: (params: { id: string; createdAt: string }) => void
+    }
+  >
 }
 
 type BookProgressProps = {
@@ -91,23 +78,34 @@ export const BookProgress: BookProgressComponent = ({
       : Number(entries[entries.length - 1].toPageNumber) + 1
   }, [entries])
 
-  const value = {
-    totalProgress,
-    totalPricePerProgress,
-    initialFromPageNumber,
-    entries,
-    setEntries,
-    ...props,
-  }
+  const dispatch = useMemo(() => ({ setEntries }), [])
+  const value = useMemo(
+    () => ({
+      totalProgress,
+      totalPricePerProgress,
+      initialFromPageNumber,
+      entries,
+      ...props,
+    }),
+    [
+      entries,
+      initialFromPageNumber,
+      props,
+      totalPricePerProgress,
+      totalProgress,
+    ]
+  )
   return (
-    <BookProgressContext.Provider value={value}>
-      {children}
-    </BookProgressContext.Provider>
+    <BookProgressDispatchContext.Provider value={dispatch}>
+      <BookProgressContext.Provider value={value}>
+        {children}
+      </BookProgressContext.Provider>
+    </BookProgressDispatchContext.Provider>
   )
 }
 
 BookProgress.Header = function Component({ children }) {
-  return <div>{children}</div>
+  return useMemo(() => <div>{children}</div>, [children])
 }
 
 BookProgress.TotalProgress = function Component() {
@@ -126,19 +124,23 @@ BookProgress.TotalPricePerProgress = function Component() {
 }
 
 BookProgress.Content = function Component({ children }) {
-  return (
-    <div>
-      <h4 className="font-semibold mb-2">読書進捗</h4>
-      {children}
-    </div>
+  return useMemo(
+    () => (
+      <div>
+        <h4 className="font-semibold mb-2">読書進捗</h4>
+        {children}
+      </div>
+    ),
+    [children]
   )
 }
 
 BookProgress.Records = function Component({ onConfirmDelete }) {
-  const { entries, bookId, setEntries } = useContext(BookProgressContext)
+  const { entries, bookId } = useContext(BookProgressContext)
+  const { setEntries } = useContext(BookProgressDispatchContext)
 
-  const handleChangeProgressStatus = useCallback(
-    (id: string, isEnabled: boolean) => {
+  const handleChangeStatus = useCallback(
+    ({ id, isEnabled }: { id: string; isEnabled: boolean }) => {
       const toggledIsEnabled = !isEnabled
       setEntries((entries) =>
         entries.map((entry) =>
@@ -149,7 +151,7 @@ BookProgress.Records = function Component({ onConfirmDelete }) {
     },
     [bookId, setEntries]
   )
-  const handleDeleteProgress = useCallback(
+  const handleDelete = useCallback(
     ({ id, createdAt }: { id: string; createdAt: string }) => {
       onConfirmDelete({
         id,
@@ -166,41 +168,71 @@ BookProgress.Records = function Component({ onConfirmDelete }) {
 
   return (
     <>
-      {entries.map((e, index) => (
-        <div
-          key={e.id}
-          className={`flex justify-between items-center mb-2 p-2 rounded-md hover:bg-muted/80 transition-colors ${e.isEnabled ? 'bg-muted/50 text-muted-foreground' : 'bg-muted'}`}
-        >
-          <div className="flex items-center space-x-4">
-            <span className="font-medium text-sm">{index + 1}.</span>
-            <span>
-              {e.fromPageNumber} - {e.toPageNumber}ページ
-            </span>
-            <span className="text-sm text-muted-foreground">
-              ({e.toPageNumber - e.fromPageNumber + 1}ページ)
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{e.createdAt}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleChangeProgressStatus(e.id, e.isEnabled)}
-            >
-              <EyeOff className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                handleDeleteProgress({ id: e.id, createdAt: e.createdAt })
-              }
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {entries.map((entry, index) => (
+        <BookProgress.Record
+          {...entry}
+          key={entry.id}
+          counter={index + 1}
+          onChangeStatus={handleChangeStatus}
+          onDelete={handleDelete}
+        />
       ))}
     </>
+  )
+}
+
+BookProgress.Record = function Component({
+  id,
+  fromPageNumber,
+  toPageNumber,
+  isEnabled,
+  createdAt,
+  counter,
+  onChangeStatus,
+  onDelete,
+}) {
+  return useMemo(
+    () => (
+      <div
+        className={`flex justify-between items-center mb-2 p-2 rounded-md hover:bg-muted/80 transition-colors ${isEnabled ? 'bg-muted/50 text-muted-foreground' : 'bg-muted'}`}
+      >
+        <div className="flex items-center space-x-4">
+          <span className="font-medium text-sm">{counter}.</span>
+          <span>
+            {fromPageNumber} - {toPageNumber}ページ
+          </span>
+          <span className="text-sm text-muted-foreground">
+            ({toPageNumber - fromPageNumber + 1}ページ)
+          </span>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-muted-foreground">{createdAt}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onChangeStatus({ id, isEnabled })}
+          >
+            <EyeOff className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete({ id, createdAt })}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    ),
+    [
+      counter,
+      createdAt,
+      fromPageNumber,
+      id,
+      isEnabled,
+      onChangeStatus,
+      onDelete,
+      toPageNumber,
+    ]
   )
 }

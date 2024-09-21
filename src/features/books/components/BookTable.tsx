@@ -1,4 +1,4 @@
-import { ComponentProps, FC, useCallback, useMemo, useState } from 'react'
+import { ComponentProps, FC, memo, useCallback, useMemo, useState } from 'react'
 import { Book } from './Book'
 import { BookProgress as BookProgressType } from '@/features/progresses/types'
 import { BookProgress } from '@/features/progresses/components/BookProgress'
@@ -19,7 +19,7 @@ export const BookTable: FC<{
     onSubmit: () => void
     onCancel?: () => void
   }) => void
-}> = ({ initialBooks, initialBookProgresses, openConfirm }) => {
+}> = memo(({ initialBooks, initialBookProgresses, openConfirm }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [books, setBooks] = useState<BookType[]>(initialBooks)
   const sortedBooks = useMemo(
@@ -165,4 +165,4 @@ export const BookTable: FC<{
       </div>
     </>
   )
-}
+})

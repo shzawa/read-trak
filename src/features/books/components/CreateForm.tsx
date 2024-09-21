@@ -1,4 +1,4 @@
-import { FC, PropsWithChildren } from 'react'
+import { FC, PropsWithChildren, useMemo } from 'react'
 import { ConditionalKeys } from 'type-fest'
 import { FormProvider, useForm, useFormContext } from 'react-hook-form'
 import { Input } from '@/components/ui/input'
@@ -39,12 +39,15 @@ export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
     methods.reset()
   })
 
-  return (
-    <FormProvider {...methods}>
-      <form onSubmit={handleSubmit}>
-        <div className="grid gap-4">{children}</div>
-      </form>
-    </FormProvider>
+  return useMemo(
+    () => (
+      <FormProvider {...methods}>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4">{children}</div>
+        </form>
+      </FormProvider>
+    ),
+    [children, handleSubmit, methods]
   )
 }
 

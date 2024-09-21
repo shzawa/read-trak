@@ -1,18 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import {
-  BookProgress,
-  BookProgressContext,
-} from '@/features/progresses/components/BookProgress'
+import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { BookProgress as BookProgressType } from '@/features/progresses/types'
 import { Trash2 } from 'lucide-react'
 import {
-  createContext,
-  Dispatch,
   FC,
   PropsWithChildren,
-  SetStateAction,
   useCallback,
   useContext,
   useMemo,
@@ -20,24 +14,8 @@ import {
 } from 'react'
 import type { Book as BookType } from '../types'
 import { updateBookToStorage } from '../storage'
-
-const BookDispatchContext = createContext<{
-  setBook: Dispatch<SetStateAction<BookType>>
-}>({
-  setBook: () => {},
-})
-
-type BookContextProps = BookType & {
-  setBook: Dispatch<SetStateAction<BookType>>
-}
-const BookContext = createContext<BookContextProps>({
-  id: '',
-  price: 0,
-  title: '',
-  totalPageNumber: 0,
-  createdAt: '',
-  setBook: () => {},
-})
+import { BookContext, BookDispatchContext } from '../context'
+import { BookProgressDispatchContext } from '@/features/progresses/context'
 
 interface BookComponent extends FC<PropsWithChildren<BookType>> {
   Header: FC<PropsWithChildren>
@@ -71,26 +49,33 @@ export const Book: BookComponent = ({ children, ...bookProps }) => {
   const [book, setBook] = useState<BookType>(bookProps)
   const dispatch = useMemo(() => ({ setBook }), [])
 
-  return (
-    <BookDispatchContext.Provider value={dispatch}>
-      <BookContext.Provider value={{ ...book, setBook }}>
-        <Card className="mb-4">{children}</Card>
-      </BookContext.Provider>
-    </BookDispatchContext.Provider>
+  return useMemo(
+    () => (
+      <BookDispatchContext.Provider value={dispatch}>
+        <BookContext.Provider value={{ ...book }}>
+          <Card className="mb-4">{children}</Card>
+        </BookContext.Provider>
+      </BookDispatchContext.Provider>
+    ),
+    [book, children, dispatch]
   )
 }
 
 const Header: FC<PropsWithChildren> = ({ children }) => {
-  return (
-    <CardHeader>
-      <div className="flex justify-between items-center">{children}</div>
-    </CardHeader>
+  return useMemo(
+    () => (
+      <CardHeader>
+        <div className="flex justify-between items-center">{children}</div>
+      </CardHeader>
+    ),
+    [children]
   )
 }
 Book.Header = Header
 
 Book.Title = function Component() {
-  const { id, title: value, setBook } = useContext(BookContext)
+  const { id, title: value } = useContext(BookContext)
+  const { setBook } = useContext(BookDispatchContext)
   const [inputValue, setInputValue] = useState(value)
   const [isEditable, setIsEditable] = useState(false)
 
@@ -153,15 +138,18 @@ Book.DeleteButton = function Component({ onDelete }) {
 
 Book.Content = function Component({ children, initialProgresses }) {
   const { id, price, totalPageNumber } = useContext(BookContext)
-  return (
-    <BookProgress
-      bookId={id}
-      price={price}
-      totalPageNumber={totalPageNumber}
-      initialValues={initialProgresses}
-    >
-      <CardContent>{children}</CardContent>
-    </BookProgress>
+  return useMemo(
+    () => (
+      <BookProgress
+        bookId={id}
+        price={price}
+        totalPageNumber={totalPageNumber}
+        initialValues={initialProgresses}
+      >
+        <CardContent>{children}</CardContent>
+      </BookProgress>
+    ),
+    [children, id, price, totalPageNumber, initialProgresses]
   )
 }
 
@@ -182,7 +170,7 @@ Book.TotalPageNumberAndPrice = function Component({
 Book.TotalPageNumber = function Component({ onConfirmEdit }) {
   const { totalPageNumber: value, id } = useContext(BookContext)
   const { setBook } = useContext(BookDispatchContext)
-  const { setEntries } = useContext(BookProgressContext)
+  const { setEntries } = useContext(BookProgressDispatchContext)
   const [inputValue, setInputValue] = useState(value)
   const [isEditable, setIsEditable] = useState(false)
 
@@ -199,7 +187,7 @@ Book.TotalPageNumber = function Component({ onConfirmEdit }) {
         value: inputValue,
         id,
         onSubmit: () => {
-          setEntries(() => []) // 総ページ数が変更されたら進捗をリセット
+          setEntries([]) // 総ページ数が変更されたら進捗をリセット
           setBook((prev) => ({ ...prev, totalPageNumber: inputValue }))
           updateBookToStorage({ id, totalPageNumber: inputValue })
         },
