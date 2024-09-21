@@ -1,4 +1,4 @@
-export type BookProgressType = {
+export type BookProgress = {
   id: string
   fromPageNumber: number
   toPageNumber: number

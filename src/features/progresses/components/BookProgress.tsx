@@ -12,11 +12,11 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { BookProgressType } from '../types'
-
-// TODO: 共通化
-// {[bookId: string]: { id: string, ... }[]}
-// const BOOK_PROGRESSES_STORAGE_KEY = 'BookProgresses'
+import { BookProgress as BookProgressType } from '../types'
+import {
+  deleteBookProgressFromStorage,
+  updateBookProgressToStorage,
+} from '../storage'
 
 type BookProgressContext = {
   bookId: string
@@ -86,7 +86,6 @@ export const BookProgress: BookProgressComponent = ({
   }, [entries, price, totalPageNumber])
 
   const initialFromPageNumber = useMemo(() => {
-    // FIXME: toPageNumber が number 型なのに中身は string になっている
     return entries.length === 0
       ? 1
       : Number(entries[entries.length - 1].toPageNumber) + 1
@@ -146,8 +145,9 @@ BookProgress.Records = function Component({ onConfirmDelete }) {
           entry.id === id ? { ...entry, isEnabled: toggledIsEnabled } : entry
         )
       )
+      updateBookProgressToStorage({ id, bookId, isEnabled: toggledIsEnabled })
     },
-    [setEntries]
+    [bookId, setEntries]
   )
   const handleDeleteProgress = useCallback(
     ({ id, createdAt }: { id: string; createdAt: string }) => {
@@ -155,8 +155,10 @@ BookProgress.Records = function Component({ onConfirmDelete }) {
         id,
         bookId,
         createdAt,
-        onSubmit: () =>
-          setEntries((entries) => entries.filter((entry) => entry.id !== id)),
+        onSubmit: () => {
+          setEntries((entries) => entries.filter((entry) => entry.id !== id))
+          deleteBookProgressFromStorage({ id, bookId })
+        },
       })
     },
     [bookId, onConfirmDelete, setEntries]

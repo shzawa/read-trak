@@ -4,6 +4,7 @@ import { FC, PropsWithChildren, useContext, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { addBookProgressToStorage } from '../storage'
 
 interface CreateFormComponent extends FC<PropsWithChildren> {
   FromPageInputField: FC
@@ -36,15 +37,14 @@ export const CreateForm: CreateFormComponent = ({ children }) => {
   }, [initialFromPageNumber, bookId, methods])
 
   const handleSubmit = methods.handleSubmit((fields) => {
-    setEntries((entries) => [
-      ...entries,
-      {
-        ...fields,
-        id: window.crypto.randomUUID(),
-        createdAt: new window.Date().toLocaleString(),
-        isEnabled: true,
-      },
-    ])
+    const newEntry = {
+      ...fields,
+      id: window.crypto.randomUUID(),
+      createdAt: new window.Date().toLocaleString(),
+      isEnabled: true,
+    }
+    setEntries((entries) => [...entries, newEntry])
+    addBookProgressToStorage(newEntry)
   })
 
   return (

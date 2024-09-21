@@ -1,23 +1,17 @@
 import { ComponentProps, FC, useCallback, useMemo, useState } from 'react'
 import { Book } from './Book'
-import { BookProgressType } from '@/features/progresses/types'
+import { BookProgress as BookProgressType } from '@/features/progresses/types'
 import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { CreateForm as CreateBookProgressForm } from '@/features/progresses/components/CreateForm'
 import { CreateForm } from '@/features/books/components/CreateForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-
-type Book = {
-  id: string
-  title: string
-  price: number
-  totalPageNumber: number
-  createdAt: string
-}
+import { Book as BookType } from '../types'
+import { addBookToStorage, deleteBookFromStorage } from '../storage'
 
 export const BookTable: FC<{
-  initialBooks: Book[]
+  initialBooks: BookType[]
   initialBookProgresses: Record<string, BookProgressType[]>
   openConfirm: (params: {
     title: string
@@ -27,7 +21,7 @@ export const BookTable: FC<{
   }) => void
 }> = ({ initialBooks, initialBookProgresses, openConfirm }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [books, setBooks] = useState<Book[]>(initialBooks)
+  const [books, setBooks] = useState<BookType[]>(initialBooks)
   const sortedBooks = useMemo(
     () =>
       books
@@ -46,15 +40,13 @@ export const BookTable: FC<{
     ComponentProps<typeof CreateForm>['onSubmit']
   >(
     (params) => {
-      setBooks((prevBooks) => [
-        ...prevBooks,
-        {
-          id: window.crypto.randomUUID(),
-          createdAt: new Date().toLocaleString(),
-          ...params,
-        },
-      ])
-      // TODO: localStorageにも追加
+      const newBook = {
+        id: window.crypto.randomUUID(),
+        createdAt: new Date().toLocaleString(),
+        ...params,
+      }
+      setBooks((prevBooks) => [...prevBooks, newBook])
+      addBookToStorage(newBook)
     },
     [setBooks]
   )
@@ -68,7 +60,7 @@ export const BookTable: FC<{
         description: `この本の情報を削除してもよろしいですか？タイトル: ${title}`,
         onSubmit: () => {
           setBooks((prevBooks) => prevBooks.filter((book) => book.id !== id))
-          // TODO: localStorageからも削除
+          deleteBookFromStorage(id)
         },
       })
     },

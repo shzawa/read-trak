@@ -13,13 +13,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { BookTable } from '@/features/books/components/BookTable'
-
-// { id: string, ... }[]
-// const BOOKS_STORAGE_KEY = 'Books'
-
-// TODO: 共通化
-// {[bookId: string]: { id: string, ... }[]}
-// const BOOK_PROGRESSES_STORAGE_KEY = 'BookProgresses'
+import { getBooksFromStorage } from '@/features/books/storage'
+import { getBookProgressesFromStorage } from '@/features/progresses/storage'
 
 type ConfirmDialogProps = {
   isOpen: boolean
@@ -51,6 +46,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 )
 
 export function ReadingManager() {
+  const books = getBooksFromStorage()
+  const bookProgresses = getBookProgressesFromStorage()
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     onConfirm: () => {},
@@ -82,8 +79,8 @@ export function ReadingManager() {
   return (
     <div className="container mx-auto p-4">
       <BookTable
-        initialBooks={[]}
-        initialBookProgresses={{}}
+        initialBooks={books}
+        initialBookProgresses={bookProgresses}
         openConfirm={handleOpenConfirmDialog}
       />
 

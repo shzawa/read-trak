@@ -5,7 +5,7 @@ import {
   BookProgress,
   BookProgressContext,
 } from '@/features/progresses/components/BookProgress'
-import { BookProgressType } from '@/features/progresses/types'
+import { BookProgress as BookProgressType } from '@/features/progresses/types'
 import { Trash2 } from 'lucide-react'
 import {
   createContext,
@@ -18,25 +18,18 @@ import {
   useMemo,
   useState,
 } from 'react'
-
-type Book = {
-  id: string
-  title: string
-  price: number
-  totalPageNumber: number
-  createdAt: string
-}
+import type { Book as BookType } from '../types'
+import { updateBookToStorage } from '../storage'
 
 const BookDispatchContext = createContext<{
-  setBook: Dispatch<SetStateAction<Book>>
+  setBook: Dispatch<SetStateAction<BookType>>
 }>({
   setBook: () => {},
 })
 
-type BookContextProps = Book & {
-  setBook: Dispatch<SetStateAction<Book>>
+type BookContextProps = BookType & {
+  setBook: Dispatch<SetStateAction<BookType>>
 }
-// TODO: setBook を用意して Book 内で Storage のミューテーションを完結したい
 const BookContext = createContext<BookContextProps>({
   id: '',
   price: 0,
@@ -46,7 +39,7 @@ const BookContext = createContext<BookContextProps>({
   setBook: () => {},
 })
 
-interface BookComponent extends FC<PropsWithChildren<Book>> {
+interface BookComponent extends FC<PropsWithChildren<BookType>> {
   Header: FC<PropsWithChildren>
   Title: FC
   DeleteButton: FC<{
@@ -75,7 +68,7 @@ interface BookComponent extends FC<PropsWithChildren<Book>> {
 }
 
 export const Book: BookComponent = ({ children, ...bookProps }) => {
-  const [book, setBook] = useState<Book>(bookProps)
+  const [book, setBook] = useState<BookType>(bookProps)
   const dispatch = useMemo(() => ({ setBook }), [])
 
   return (
@@ -97,7 +90,7 @@ const Header: FC<PropsWithChildren> = ({ children }) => {
 Book.Header = Header
 
 Book.Title = function Component() {
-  const { title: value, setBook } = useContext(BookContext)
+  const { id, title: value, setBook } = useContext(BookContext)
   const [inputValue, setInputValue] = useState(value)
   const [isEditable, setIsEditable] = useState(false)
 
@@ -106,18 +99,18 @@ Book.Title = function Component() {
   }
   const handleInputBlur = useCallback(() => {
     setBook((prev) => ({ ...prev, title: inputValue }))
-    // TODO: localStorageにも保存
+    updateBookToStorage({ id, title: inputValue })
     setIsEditable(false)
-  }, [inputValue, setBook])
+  }, [id, inputValue, setBook])
   const handleInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         setBook((prev) => ({ ...prev, title: inputValue }))
-        // TODO: localStorageにも保存
+        updateBookToStorage({ id, title: inputValue })
         setIsEditable(false)
       }
     },
-    [inputValue, setBook]
+    [id, inputValue, setBook]
   )
   const handleClick = useCallback(() => {
     setIsEditable(true)
@@ -208,7 +201,7 @@ Book.TotalPageNumber = function Component({ onConfirmEdit }) {
         onSubmit: () => {
           setEntries(() => []) // 総ページ数が変更されたら進捗をリセット
           setBook((prev) => ({ ...prev, totalPageNumber: inputValue }))
-          // TODO: localStorageにも保存
+          updateBookToStorage({ id, totalPageNumber: inputValue })
         },
         onCancel: () => setInputValue(value),
       })
@@ -227,7 +220,7 @@ Book.TotalPageNumber = function Component({ onConfirmEdit }) {
             onSubmit: () => {
               setEntries(() => []) // 総ページ数が変更されたら進捗をリセット
               setBook((prev) => ({ ...prev, totalPageNumber: inputValue }))
-              // TODO: localStorageにも保存
+              updateBookToStorage({ id, totalPageNumber: inputValue })
             },
             onCancel: () => setInputValue(value),
           })
@@ -263,7 +256,7 @@ Book.TotalPageNumber = function Component({ onConfirmEdit }) {
 }
 
 Book.Price = function Component() {
-  const { price: value } = useContext(BookContext)
+  const { price: value, id } = useContext(BookContext)
   const { setBook } = useContext(BookDispatchContext)
   const [isEditable, setIsEditable] = useState(false)
   const [inputValue, setInputValue] = useState(value)
@@ -274,14 +267,14 @@ Book.Price = function Component() {
 
   const handleInputBlur = () => {
     setBook((prev) => ({ ...prev, price: inputValue }))
-    // TODO: localStorageにも保存
+    updateBookToStorage({ id, price: inputValue })
     setIsEditable(false)
   }
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setBook((prev) => ({ ...prev, price: inputValue }))
-      // TODO: localStorageにも保存
+      updateBookToStorage({ id, price: inputValue })
       setIsEditable(false)
     }
   }
