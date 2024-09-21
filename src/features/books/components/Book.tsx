@@ -1,13 +1,21 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  BookProgress,
+  BookProgressContext,
+} from '@/features/progresses/components/BookProgress'
+import { BookProgressType } from '@/features/progresses/types'
 import { Trash2 } from 'lucide-react'
 import {
   createContext,
+  Dispatch,
   FC,
   PropsWithChildren,
+  SetStateAction,
   useCallback,
   useContext,
+  useMemo,
   useState,
 } from 'react'
 
@@ -19,37 +27,63 @@ type Book = {
   createdAt: string
 }
 
+const BookDispatchContext = createContext<{
+  setBook: Dispatch<SetStateAction<Book>>
+}>({
+  setBook: () => {},
+})
+
+type BookContextProps = Book & {
+  setBook: Dispatch<SetStateAction<Book>>
+}
 // TODO: setBook を用意して Book 内で Storage のミューテーションを完結したい
-const BookContext = createContext<Book>({
+const BookContext = createContext<BookContextProps>({
   id: '',
   price: 0,
   title: '',
   totalPageNumber: 0,
   createdAt: '',
+  setBook: () => {},
 })
 
 interface BookComponent extends FC<PropsWithChildren<Book>> {
   Header: FC<PropsWithChildren>
-  Title: FC<{ onEdit: (props: { value: string; id: string }) => void }>
-  DeleteButton: FC<{ onClick: (id: string) => void }>
-  Content: FC<PropsWithChildren>
+  Title: FC
+  DeleteButton: FC<{
+    onDelete: (params: { id: string; title: string }) => void
+  }>
+  Content: FC<PropsWithChildren<{ initialProgresses: BookProgressType[] }>>
   TotalPageNumberAndPrice: FC<
     PropsWithChildren<{
-      onEditTotalPageNumber: (params: {
+      onConfirmEditTotalPageNumber: (params: {
         id: string
         value: number
-        onConfirm: () => void
+        onSubmit: () => void
+        onCancel: () => void
       }) => void
-      onEditPrice: (params: { id: string; value: number }) => void
     }>
   >
+  TotalPageNumber: FC<{
+    onConfirmEdit: (params: {
+      id: string
+      value: number
+      onSubmit: () => void
+      onCancel: () => void
+    }) => void
+  }>
+  Price: FC
 }
 
-export const Book: BookComponent = ({ children, ...props }) => {
+export const Book: BookComponent = ({ children, ...bookProps }) => {
+  const [book, setBook] = useState<Book>(bookProps)
+  const dispatch = useMemo(() => ({ setBook }), [])
+
   return (
-    <BookContext.Provider value={props}>
-      <Card className="mb-4">{children}</Card>
-    </BookContext.Provider>
+    <BookDispatchContext.Provider value={dispatch}>
+      <BookContext.Provider value={{ ...book, setBook }}>
+        <Card className="mb-4">{children}</Card>
+      </BookContext.Provider>
+    </BookDispatchContext.Provider>
   )
 }
 
@@ -62,24 +96,29 @@ const Header: FC<PropsWithChildren> = ({ children }) => {
 }
 Book.Header = Header
 
-Book.Title = function Component({ onEdit }) {
-  const { title: initialValue, id } = useContext(BookContext)
-  const [value, setValue] = useState(initialValue)
+Book.Title = function Component() {
+  const { title: value, setBook } = useContext(BookContext)
+  const [inputValue, setInputValue] = useState(value)
   const [isEditable, setIsEditable] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(e.target.value)
+    setInputValue(e.target.value)
   }
-  const handleInputBlur = () => {
-    onEdit({ value, id })
+  const handleInputBlur = useCallback(() => {
+    setBook((prev) => ({ ...prev, title: inputValue }))
+    // TODO: localStorageにも保存
     setIsEditable(false)
-  }
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onEdit({ value, id })
-      setIsEditable(false)
-    }
-  }
+  }, [inputValue, setBook])
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        setBook((prev) => ({ ...prev, title: inputValue }))
+        // TODO: localStorageにも保存
+        setIsEditable(false)
+      }
+    },
+    [inputValue, setBook]
+  )
   const handleClick = useCallback(() => {
     setIsEditable(true)
   }, [])
@@ -88,7 +127,7 @@ Book.Title = function Component({ onEdit }) {
     <CardTitle className="break-words">
       {isEditable ? (
         <Input
-          value={value}
+          value={inputValue}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
@@ -106,77 +145,98 @@ Book.Title = function Component({ onEdit }) {
   )
 }
 
-Book.DeleteButton = function Component({ onClick }) {
-  const { id } = useContext(BookContext)
+Book.DeleteButton = function Component({ onDelete }) {
+  const { id, title } = useContext(BookContext)
   return (
     <Button
       variant="destructive"
       size="sm"
-      onClick={() => {
-        onClick(id)
-      }}
+      onClick={() => onDelete({ id, title })}
     >
       <Trash2 className="h-4 w-4 mr-2" /> 削除
     </Button>
   )
 }
 
-Book.Content = function Component({ children }) {
-  return <CardContent>{children}</CardContent>
+Book.Content = function Component({ children, initialProgresses }) {
+  const { id, price, totalPageNumber } = useContext(BookContext)
+  return (
+    <BookProgress
+      bookId={id}
+      price={price}
+      totalPageNumber={totalPageNumber}
+      initialValues={initialProgresses}
+    >
+      <CardContent>{children}</CardContent>
+    </BookProgress>
+  )
 }
 
 Book.TotalPageNumberAndPrice = function Component({
-  onEditTotalPageNumber,
-  onEditPrice,
+  onConfirmEditTotalPageNumber,
 }) {
   return (
     <div className="mb-2 flex flex-col sm:flex-row sm:items-center">
       <span className="mr-2">全ページ数:</span>
-      <TotalPageNumber onEdit={onEditTotalPageNumber} />
+      <Book.TotalPageNumber onConfirmEdit={onConfirmEditTotalPageNumber} />
       <span className="mx-2 hidden sm:inline">/</span>
       <span className="mr-2">価格:</span>
-      <Price onEdit={onEditPrice} />
+      <Book.Price />
     </div>
   )
 }
 
-const TotalPageNumber: FC<{
-  onEdit: (props: { id: string; value: number; onConfirm: () => void }) => void
-}> = ({ onEdit }) => {
-  const { totalPageNumber: initialValue, id } = useContext(BookContext)
+Book.TotalPageNumber = function Component({ onConfirmEdit }) {
+  const { totalPageNumber: value, id } = useContext(BookContext)
+  const { setBook } = useContext(BookDispatchContext)
+  const { setEntries } = useContext(BookProgressContext)
+  const [inputValue, setInputValue] = useState(value)
   const [isEditable, setIsEditable] = useState(false)
-  const [inputValue, setInputValue] = useState(initialValue)
-  const [value, setValue] = useState(initialValue)
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(Number(e.target.value))
-  }
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(Number(e.target.value))
+    },
+    []
+  )
 
-  const handleInputBlur = () => {
-    if (inputValue !== initialValue) {
-      onEdit({
+  const handleInputBlur = useCallback(() => {
+    if (inputValue !== value) {
+      onConfirmEdit({
         value: inputValue,
         id,
-        onConfirm: () => setValue(inputValue),
+        onSubmit: () => {
+          setEntries(() => []) // 総ページ数が変更されたら進捗をリセット
+          setBook((prev) => ({ ...prev, totalPageNumber: inputValue }))
+          // TODO: localStorageにも保存
+        },
+        onCancel: () => setInputValue(value),
       })
     }
-    setInputValue(initialValue)
     setIsEditable(false)
-  }
+  }, [inputValue, value, onConfirmEdit, id, setEntries, setBook])
 
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      if (inputValue !== initialValue) {
-        onEdit({
-          value: inputValue,
-          id,
-          onConfirm: () => setValue(inputValue),
-        })
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault() // confirmDialog が閉じられないようにする
+        if (inputValue !== value) {
+          onConfirmEdit({
+            value: inputValue,
+            id,
+            onSubmit: () => {
+              setEntries(() => []) // 総ページ数が変更されたら進捗をリセット
+              setBook((prev) => ({ ...prev, totalPageNumber: inputValue }))
+              // TODO: localStorageにも保存
+            },
+            onCancel: () => setInputValue(value),
+          })
+        }
+        setIsEditable(false)
       }
-      setInputValue(initialValue)
-      setIsEditable(false)
-    }
-  }
+    },
+    [inputValue, value, onConfirmEdit, id, setEntries, setBook]
+  )
 
   const handleClick = useCallback(() => {
     setIsEditable(true)
@@ -202,31 +262,26 @@ const TotalPageNumber: FC<{
   )
 }
 
-const Price: FC<{
-  onEdit: (params: { id: string; value: number }) => void
-}> = ({ onEdit }) => {
-  const { price: initialValue, id } = useContext(BookContext)
+Book.Price = function Component() {
+  const { price: value } = useContext(BookContext)
+  const { setBook } = useContext(BookDispatchContext)
   const [isEditable, setIsEditable] = useState(false)
-  const [value, setValue] = useState(initialValue)
+  const [inputValue, setInputValue] = useState(value)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(Number(e.target.value))
+    setInputValue(Number(e.target.value))
   }
 
   const handleInputBlur = () => {
-    onEdit({
-      value,
-      id,
-    })
+    setBook((prev) => ({ ...prev, price: inputValue }))
+    // TODO: localStorageにも保存
     setIsEditable(false)
   }
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      onEdit({
-        value,
-        id,
-      })
+      setBook((prev) => ({ ...prev, price: inputValue }))
+      // TODO: localStorageにも保存
       setIsEditable(false)
     }
   }
@@ -238,7 +293,7 @@ const Price: FC<{
   return isEditable ? (
     <Input
       type="number"
-      value={value}
+      value={inputValue}
       onChange={handleInputChange}
       onBlur={handleInputBlur}
       onKeyDown={handleInputKeyDown}

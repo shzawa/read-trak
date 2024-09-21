@@ -1,6 +1,6 @@
 import { FormProvider, useForm, useFormContext } from 'react-hook-form'
 import { BookProgressContext } from './BookProgress'
-import { FC, PropsWithChildren, useContext } from 'react'
+import { FC, PropsWithChildren, useContext, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -26,6 +26,15 @@ export const CreateForm: CreateFormComponent = ({ children }) => {
       bookId,
     },
   })
+
+  useEffect(() => {
+    methods.reset({
+      fromPageNumber: initialFromPageNumber,
+      toPageNumber: initialFromPageNumber,
+      bookId,
+    })
+  }, [initialFromPageNumber, bookId, methods])
+
   const handleSubmit = methods.handleSubmit((fields) => {
     setEntries((entries) => [
       ...entries,

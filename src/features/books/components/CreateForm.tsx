@@ -33,15 +33,10 @@ type FormData = {
   price: number
 }
 export const CreateForm: CreateFormComponent = ({ children, onSubmit }) => {
-  const methods = useForm<FormData>({
-    defaultValues: {
-      price: 0,
-      title: '',
-      totalPageNumber: 0,
-    },
-  })
+  const methods = useForm<FormData>()
   const handleSubmit = methods.handleSubmit((fields) => {
     onSubmit(fields)
+    methods.reset()
   })
 
   return (
