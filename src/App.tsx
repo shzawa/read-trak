@@ -1,7 +1,7 @@
-import { ReadingManager } from './components/reading-manager'
+import { ReadingManager } from "./components/reading-manager";
 
 function App() {
-  return <ReadingManager />
+  return <ReadingManager />;
 }
 
-export default App
+export default App;
