@@ -20,7 +20,13 @@ export const ConfirmDialog: React.FC<{
   description: string
 }> = ({ isOpen, onClose, onConfirm, title, description }) => (
   <AlertDialog open={isOpen}>
-    <AlertDialogContent>
+    <AlertDialogContent
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          onClose()
+        }
+      }}
+    >
       <AlertDialogHeader>
         <AlertDialogTitle>{title}</AlertDialogTitle>
         <AlertDialogDescription>{description}</AlertDialogDescription>

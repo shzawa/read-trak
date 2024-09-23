@@ -19,23 +19,26 @@ export function ReadingManager() {
 
   const handleOpenConfirmDialog = useCallback<
     ComponentProps<typeof BookTable>['openConfirm']
-  >(
-    ({ onCancel, onSubmit, ...params }) => {
-      setConfirmDialog({
-        ...params,
-        isOpen: true,
-        onConfirm: () => {
-          onSubmit()
-          setConfirmDialog({ ...confirmDialog, isOpen: false })
-        },
-        onClose: () => {
-          onCancel?.()
-          setConfirmDialog({ ...confirmDialog, isOpen: false })
-        },
-      })
-    },
-    [confirmDialog]
-  )
+  >(({ onCancel, onSubmit, ...params }) => {
+    setConfirmDialog({
+      ...params,
+      isOpen: true,
+      onConfirm: () => {
+        onSubmit()
+        setConfirmDialog((confirmDialog) => ({
+          ...confirmDialog,
+          isOpen: false,
+        }))
+      },
+      onClose: () => {
+        onCancel?.()
+        setConfirmDialog((confirmDialog) => ({
+          ...confirmDialog,
+          isOpen: false,
+        }))
+      },
+    })
+  }, [])
 
   return (
     <div className="container mx-auto p-4">

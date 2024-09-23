@@ -4,17 +4,11 @@ import { BookProgress as BookProgressType } from '@/features/progresses/types'
 import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { CreateForm as CreateBookProgressForm } from '@/features/progresses/components/CreateForm'
 import { CreateForm } from '@/features/books/components/CreateForm'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronDown, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Book as BookType } from '../types'
 import { addBookToStorage, deleteBookFromStorage } from '../storage'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { Button } from '@/components/ui/button'
+import { CollapsibleCreateForm } from './CollapsibleCreateForm'
 
 export const BookTable: FC<{
   initialBooks: BookType[]
@@ -27,7 +21,6 @@ export const BookTable: FC<{
   }) => void
 }> = memo(({ initialBooks, initialBookProgresses, openConfirm }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [isVisibleCreateBookForm, setIsVisibleCreateBookForm] = useState(false)
   const [books, setBooks] = useState<BookType[]>(initialBooks)
   const sortedBooks = useMemo(
     () =>
@@ -54,13 +47,12 @@ export const BookTable: FC<{
       }
       setBooks((prevBooks) => [...prevBooks, newBook])
       addBookToStorage(newBook)
-      setIsVisibleCreateBookForm(false)
     },
     [setBooks]
   )
 
   const handleDeleteBook = useCallback<
-    ComponentProps<typeof Book.DeleteButton>['onDelete']
+    ComponentProps<typeof Book.DropdownMenuButton>['onClickDelete']
   >(
     ({ id, title }) => {
       openConfirm({
@@ -117,56 +109,14 @@ export const BookTable: FC<{
           />
         </div>
       </div>
-      <Collapsible
-        open={isVisibleCreateBookForm}
-        onOpenChange={setIsVisibleCreateBookForm}
-        className="mb-4"
-      >
-        <CollapsibleTrigger asChild>
-          <Button variant="outline" className="w-full mb-4">
-            {isVisibleCreateBookForm
-              ? '書籍登録フォームを閉じる'
-              : '書籍登録フォームを開く'}
-            <ChevronDown
-              className={`h-4 w-4 ml-2 transition-transform duration-200 ${isVisibleCreateBookForm ? 'transform rotate-180' : ''}`}
-            />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>新しい書籍を作成</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CreateForm onSubmit={handleCreateBook}>
-                <CreateForm.TextInputField
-                  name="title"
-                  placeholder="タイトル"
-                  className="w-full"
-                />
-                <div className="flex gap-2">
-                  <CreateForm.NumberInputField
-                    name="totalPageNumber"
-                    placeholder="全ページ数"
-                  />
-                  <CreateForm.NumberInputField
-                    name="price"
-                    placeholder="価格"
-                  />
-                  <CreateForm.SubmitButton />
-                </div>
-              </CreateForm>
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
+      <CollapsibleCreateForm onSubmit={handleCreateBook} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sortedBooks.map((book) => (
           <Book {...book} key={book.id}>
             <Book.Header>
               <Book.Title />
-              <Book.DeleteButton onDelete={handleDeleteBook} />
+              <Book.DropdownMenuButton onClickDelete={handleDeleteBook} />
             </Book.Header>
             <Book.Content
               initialProgresses={initialBookProgresses?.[book.id] || []}

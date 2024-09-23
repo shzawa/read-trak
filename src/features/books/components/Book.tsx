@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { BookProgress as BookProgressType } from '@/features/progresses/types'
-import { Trash2 } from 'lucide-react'
+import { MoreVertical, Trash2 } from 'lucide-react'
 import {
   FC,
   PropsWithChildren,
@@ -16,13 +16,16 @@ import type { Book as BookType } from '../types'
 import { updateBookToStorage } from '../storage'
 import { BookContext, BookDispatchContext } from '../context'
 import { BookProgressDispatchContext } from '@/features/progresses/context'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface BookComponent extends FC<PropsWithChildren<BookType>> {
   Header: FC<PropsWithChildren>
   Title: FC
-  DeleteButton: FC<{
-    onDelete: (params: { id: string; title: string }) => void
-  }>
   Content: FC<PropsWithChildren<{ initialProgresses: BookProgressType[] }>>
   TotalPageNumberAndPrice: FC<
     PropsWithChildren<{
@@ -43,6 +46,9 @@ interface BookComponent extends FC<PropsWithChildren<BookType>> {
     }) => void
   }>
   Price: FC
+  DropdownMenuButton: FC<{
+    onClickDelete: (params: { id: string; title: string }) => void
+  }>
 }
 
 export const Book: BookComponent = ({ children, ...bookProps }) => {
@@ -120,19 +126,6 @@ Book.Title = function Component() {
         </span>
       )}
     </CardTitle>
-  )
-}
-
-Book.DeleteButton = function Component({ onDelete }) {
-  const { id, title } = useContext(BookContext)
-  return (
-    <Button
-      variant="destructive"
-      size="sm"
-      onClick={() => onDelete({ id, title })}
-    >
-      <Trash2 className="h-4 w-4 mr-2" /> 削除
-    </Button>
   )
 }
 
@@ -288,5 +281,24 @@ Book.Price = function Component() {
     >
       ¥{value}
     </span>
+  )
+}
+
+Book.DropdownMenuButton = function Component({ onClickDelete }) {
+  const { id, title } = useContext(BookContext)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onClickDelete({ id, title })}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          削除
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
