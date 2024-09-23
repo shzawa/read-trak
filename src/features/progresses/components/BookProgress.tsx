@@ -197,16 +197,16 @@ BookProgress.Record = function Component({
         className={`flex justify-between items-center mb-2 p-2 rounded-md hover:bg-muted/80 transition-colors ${isEnabled ? 'bg-muted/50 text-muted-foreground' : 'bg-muted'}`}
       >
         <div className="flex items-center space-x-4">
-          <span className="font-medium text-sm">{counter}.</span>
+          <span className="font-medium text-base">{counter}.</span>
           <span>
             {fromPageNumber} - {toPageNumber}ページ
           </span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-base text-muted-foreground">
             ({toPageNumber - fromPageNumber + 1}ページ)
           </span>
         </div>
         <div className="flex items-center space-x-4">
-          <span className="text-sm text-muted-foreground">{createdAt}</span>
+          <span className="text-base text-muted-foreground">{createdAt}</span>
           <Button
             variant="ghost"
             size="sm"
