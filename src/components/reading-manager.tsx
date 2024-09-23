@@ -3,6 +3,7 @@ import { BookTable } from '@/features/books/components/BookTable'
 import { getBooksFromStorage } from '@/features/books/storage'
 import { getBookProgressesFromStorage } from '@/features/progresses/storage'
 import { ConfirmDialog } from './ConfirmDialog'
+import { ModeToggle } from './ModeToggle'
 
 export function ReadingManager() {
   const books = getBooksFromStorage()
@@ -42,9 +43,12 @@ export function ReadingManager() {
 
   return (
     <div className="container mx-auto p-4">
-      <a href="/">
-        <h1 className="text-2xl font-bold mb-4">Read Trak</h1>
-      </a>
+      <div className="flex justify-between">
+        <h1 className="text-2xl font-bold mb-4">
+          <a href="/">Read Trak</a>
+        </h1>
+        <ModeToggle />
+      </div>
       <BookTable
         initialBooks={books}
         initialBookProgresses={bookProgresses}

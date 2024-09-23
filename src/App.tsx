@@ -1,7 +1,12 @@
-import { ReadingManager } from "./components/reading-manager";
+import { ReadingManager } from './components/reading-manager'
+import { ThemeProvider } from './components/ThemeProvider'
 
 function App() {
-  return <ReadingManager />;
+  return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <ReadingManager />
+    </ThemeProvider>
+  )
 }
 
-export default App;
+export default App
