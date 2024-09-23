@@ -12,8 +12,8 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       injectRegister: 'auto', //ここの記述
       manifest: {
-        name: 'PWA Sample Apps',
-        short_name: 'PWAApps',
+        name: 'Read Trak',
+        short_name: 'ReadTrak',
         description: 'PWAサンプルアプリ',
         theme_color: '#ffffff',
         icons: [
