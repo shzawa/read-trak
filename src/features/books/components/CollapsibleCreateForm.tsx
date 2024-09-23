@@ -17,7 +17,7 @@ export const CollapsibleCreateForm: FC<{
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-4">
       <CollapsibleTrigger asChild>
-        <Button variant="outline" className="w-full mb-4">
+        <Button variant="outline" className="w-full">
           {isOpen ? '書籍登録フォームを閉じる' : '書籍登録フォームを開く'}
           <ChevronDown
             className={`h-4 w-4 ml-2 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
@@ -25,7 +25,7 @@ export const CollapsibleCreateForm: FC<{
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <Card className="mb-4">
+        <Card className="mt-4 mb-4">
           <CardHeader>
             <CardTitle>新しい書籍を作成</CardTitle>
           </CardHeader>
