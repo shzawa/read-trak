@@ -9,13 +9,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
-      injectRegister: 'auto', //ここの記述
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      injectRegister: 'auto',
       manifest: {
         name: 'Read Trak',
         short_name: 'ReadTrak',
-        description: 'PWAサンプルアプリ',
-        theme_color: '#ffffff',
+        description: '読書進捗トラッキングツール',
+        theme_color: '#2a64f6',
         icons: [
           {
             src: 'pwa-192x192.png',
