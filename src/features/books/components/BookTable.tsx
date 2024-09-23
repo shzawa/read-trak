@@ -5,10 +5,16 @@ import { BookProgress } from '@/features/progresses/components/BookProgress'
 import { CreateForm as CreateBookProgressForm } from '@/features/progresses/components/CreateForm'
 import { CreateForm } from '@/features/books/components/CreateForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Book as BookType } from '../types'
 import { addBookToStorage, deleteBookFromStorage } from '../storage'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Button } from '@/components/ui/button'
 
 export const BookTable: FC<{
   initialBooks: BookType[]
@@ -21,6 +27,7 @@ export const BookTable: FC<{
   }) => void
 }> = memo(({ initialBooks, initialBookProgresses, openConfirm }) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [isVisibleCreateBookForm, setIsVisibleCreateBookForm] = useState(false)
   const [books, setBooks] = useState<BookType[]>(initialBooks)
   const sortedBooks = useMemo(
     () =>
@@ -47,6 +54,7 @@ export const BookTable: FC<{
       }
       setBooks((prevBooks) => [...prevBooks, newBook])
       addBookToStorage(newBook)
+      setIsVisibleCreateBookForm(false)
     },
     [setBooks]
   )
@@ -56,8 +64,8 @@ export const BookTable: FC<{
   >(
     ({ id, title }) => {
       openConfirm({
-        title: '本の削除',
-        description: `この本の情報を削除してもよろしいですか？タイトル: ${title}`,
+        title: '書籍の削除',
+        description: `この書籍の情報を削除してもよろしいですか？タイトル: ${title}`,
         onSubmit: () => {
           setBooks((prevBooks) => prevBooks.filter((book) => book.id !== id))
           deleteBookFromStorage(id)
@@ -102,35 +110,56 @@ export const BookTable: FC<{
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="本のタイトルを検索..."
+            placeholder="書籍のタイトルを検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
           />
         </div>
       </div>
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>新しい本を追加</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CreateForm onSubmit={handleCreateBook}>
-            <CreateForm.TextInputField
-              name="title"
-              placeholder="タイトル"
-              className="w-full"
+      <Collapsible
+        open={isVisibleCreateBookForm}
+        onOpenChange={setIsVisibleCreateBookForm}
+        className="mb-4"
+      >
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full mb-4">
+            {isVisibleCreateBookForm
+              ? '書籍登録フォームを閉じる'
+              : '書籍登録フォームを開く'}
+            <ChevronDown
+              className={`h-4 w-4 ml-2 transition-transform duration-200 ${isVisibleCreateBookForm ? 'transform rotate-180' : ''}`}
             />
-            <div className="flex gap-2">
-              <CreateForm.NumberInputField
-                name="totalPageNumber"
-                placeholder="全ページ数"
-              />
-              <CreateForm.NumberInputField name="price" placeholder="価格" />
-              <CreateForm.SubmitButton />
-            </div>
-          </CreateForm>
-        </CardContent>
-      </Card>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>新しい書籍を作成</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CreateForm onSubmit={handleCreateBook}>
+                <CreateForm.TextInputField
+                  name="title"
+                  placeholder="タイトル"
+                  className="w-full"
+                />
+                <div className="flex gap-2">
+                  <CreateForm.NumberInputField
+                    name="totalPageNumber"
+                    placeholder="全ページ数"
+                  />
+                  <CreateForm.NumberInputField
+                    name="price"
+                    placeholder="価格"
+                  />
+                  <CreateForm.SubmitButton />
+                </div>
+              </CreateForm>
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sortedBooks.map((book) => (

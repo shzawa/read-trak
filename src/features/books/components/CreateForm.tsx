@@ -75,7 +75,7 @@ CreateForm.NumberInputField = function Component({ name, placeholder }) {
 CreateForm.SubmitButton = function Component() {
   return (
     <Button type="submit">
-      <Plus className="mr-2 h-4 w-4" /> 追加
+      <Plus className="mr-2 h-4 w-4" /> 作成
     </Button>
   )
 }

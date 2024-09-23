@@ -51,7 +51,7 @@ export const CreateForm: CreateFormComponent = ({ children }) => {
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <h4 className="font-semibold mb-2">読書進捗を追加</h4>
+          <h4 className="font-semibold mb-2">読書進捗を作成</h4>
           <div className="flex gap-2">{children}</div>
         </div>
       </form>
@@ -84,7 +84,7 @@ CreateForm.ToPageInputField = function Component() {
 CreateForm.SubmitButton = function Component() {
   return (
     <Button type="submit">
-      <Plus className="mr-2 h-4 w-4" /> 追加
+      <Plus className="mr-2 h-4 w-4" /> 作成
     </Button>
   )
 }

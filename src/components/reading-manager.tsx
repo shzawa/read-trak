@@ -39,6 +39,9 @@ export function ReadingManager() {
 
   return (
     <div className="container mx-auto p-4">
+      <a href="/">
+        <h1 className="text-2xl font-bold mb-4">Read Trak</h1>
+      </a>
       <BookTable
         initialBooks={books}
         initialBookProgresses={bookProgresses}
